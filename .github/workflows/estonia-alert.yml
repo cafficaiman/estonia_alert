@@ -8,30 +8,42 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Send test message to Telegram
+      - name: Debug Telegram send
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           python - <<'PY'
           import os
+          import json
           import urllib.parse
           import urllib.request
+          import urllib.error
 
-          BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
-          CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
+          bot_token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+          chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
 
-          url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-          data = urllib.parse.urlencode({
-              "chat_id": CHAT_ID,
-              "text": "🔥 ТЕСТ: если ты это видишь — всё работает"
-          }).encode()
+          print("TOKEN length:", len(bot_token))
+          print("CHAT_ID value:", chat_id)
 
+          url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+          payload = {
+              "chat_id": chat_id,
+              "text": "TEST from GitHub Actions"
+          }
+          data = urllib.parse.urlencode(payload).encode("utf-8")
           req = urllib.request.Request(url, data=data, method="POST")
 
           try:
-              with urllib.request.urlopen(req) as response:
-                  print(response.read().decode())
+              with urllib.request.urlopen(req, timeout=20) as resp:
+                  body = resp.read().decode("utf-8", errors="replace")
+                  print("HTTP status:", resp.status)
+                  print("Response:", body)
+          except urllib.error.HTTPError as e:
+              print("HTTP ERROR:", e.code)
+              print("Error body:", e.read().decode("utf-8", errors="replace"))
+              raise
           except Exception as e:
-              print("ERROR:", e)
+              print("GENERIC ERROR:", repr(e))
+              raise
           PY
